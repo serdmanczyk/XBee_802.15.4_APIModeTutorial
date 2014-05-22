@@ -1,0 +1,42 @@
+Rx: 81 00 01 24 00 48 65 6c 6c 6f 20 57 6f 72 6c 64
+rxmsg: Hello World
+Tx: 01 00 ff ff 01 7d 5e 7d 5d 7d 31 7d 33
+Rx: 81 00 01 25 00 7e 7d 11 13
+rxmsg: 7e 7d 11 13
+
+
+
+#                                                                    Checksum -
+#                                             -  "hello world" in Ascii -      |
+#                                Options - |                                |  |
+#                         Address LSB - |  |                                |  |
+#                      Address MSB - |  |  |                                |  |
+#                    Tx Request - |  |  |  |                                |  |
+#                        LSB - |  |  |  |  |                                |  |
+#                     MSB - |  |  |  |  |  |                                |  |
+#     start delimieter - |  |  |  |  |  |  |                                |  |
+#                        |  |  |  |  |  |  |                                |  |
+#                        7e 00 04 01 00 00 01 68 65 6C 6C 6F 20 77 6F 72 6C 64 a1
+
+#                                                                      Checksum - |
+#                                                | -  "hello world" in Ascii - |  |
+#                                   Options - |  |                             |  |
+#                                   RSSI - |  |  |                             |  |
+#                  Source Address LSB - |  |  |  |                             |  |
+#               Source Address MSB - |  |  |  |  |                             |  |
+#                    Rx Message - |  |  |  |  |  |                             |  |
+#                        LSB - |  |  |  |  |  |  |                             |  |
+#                     MSB - |  |  |  |  |  |  |  |                             |  |
+#     start delimieter - |  |  |  |  |  |  |  |  |                             |  |
+#                        |  |  |  |  |  |  |  |  |                             |  |
+#                       7e 00 10 81 00 01 28 00 48 65 6c 6c 6f 20 57 6f 72 6c 64 39
+
+Tx: 01 00 00 01 01 48 65 6c 6c 6f 20 57 6f 72 6c 64
+Rx: 81 00 01 24 00 48 65 6c 6c 6f 20 57 6f 72 6c 64
+rxmsg: Hello World
+
+
+
+Tx: 01 00 ff ff 01 7d 5e 7d 5d 7d 31 7d 33
+Rx: 81 00 01 25 00 7e 7d 11 13
+rxmsg: 7e 7d 11 13
