@@ -1,23 +1,77 @@
 import serial
+from collections import deque
 
-class XBee:
-   def __init__(self, serialport):
-      self.serial = serial.Serial(port=serialport, baudrate=9600, timeout=0)
+class XBee():
+   RxBuff = bytearray()
+   RxMessages = deque()
+
+   def __init__(self, serialport, baudrate=9600):
+      self.serial = serial.Serial(port=serialport, baudrate=baudrate)
+
+   def Receive(self):
+      """
+         Receives data from serial and checks buffer for potential messages.
+         Returns the next message in the queue if available.
+      """
+      remaining = self.serial.inWaiting()
+      while remaining:
+         chunk = self.serial.read(remaining)
+         remaining -= len(chunk)
+         self.RxBuff.extend(chunk)
+
+         msgs = self.RxBuff.split(bytes(b'\x7E'))
+         for msg in msgs[:-1]:
+            self.Validate(msg)
+
+         self.RxBuff = (bytearray() if self.Validate(msgs[-1]) else msgs[-1])
+
+      if self.RxMessages:
+         return self.RxMessages.popleft()
+      else:
+         return None
+
+   def Validate(self, msg):
+      """
+      Parses a byte or bytearray object to verify the contents are a 
+         properly formatted XBee message.
+
+      Inputs: An incoming XBee message
+
+      Outputs: True or False, indicating message validity
+      """
+
+      # 9 bytes is Minimum length to be a valid Rx frame
+      #  LSB, MSB, Type, Source Address(2), RSSI, Options, 1 byte data, checksum
+      if (len(msg) - msg.count(bytes(b'0x7D'))) < 9: 
+         return False
+
+      # All bytes in message must be unescaped before validating content
+      frame = self.Unescape(msg)
+
+      LSB = frame[1]
+      # Frame (minus checksum) must contain at least length equal to LSB
+      if LSB > (len(frame[2:]) - 1):
+         return False
+
+      # Validate checksum
+      if (sum(frame[2:3+LSB]) & 0xFF) != 0xFF:
+         return False
+
+      print("Rx: " + self.format(bytearray(b'\x7E') + msg))
+      self.RxMessages.append(frame)
+      return True
 
    def SendStr(self, msg, addr=0xFFFF, options=0x01, frameid=0x00):
       """
       Inputs:
-         msg: A message, in string format, to be sent to an XBee
+         msg: A message, in string format, to be sent
          addr: The 16 bit address of the destination XBee (default: 0xFFFF broadcast)
          options: Optional byte to specify transmission options (default 0x01: disable acknowledge)
-         frameod: Optional frameid, only used if Tx status is desired
+         frameid: Optional frameid, only used if Tx status is desired
       Returns:
-         Message sent to XBee; stripped of start delimeter, MSB, LSB, and checksum;
-          formatted into a readable string
+         Number of bytes sent
       """
-      bytes = bytearray()
-      [bytes.append(ord(c)) for c in msg]
-      return self.Send(bytes, addr, options, frameid)
+      return self.Send(msg.encode('utf-8'), addr, options, frameid)
 
    def Send(self, msg, addr=0xFFFF, options=0x01, frameid=0x00):
       """
@@ -25,76 +79,29 @@ class XBee:
          msg: A message, in bytes or bytearray format, to be sent to an XBee
          addr: The 16 bit address of the destination XBee (default broadcast)
          options: Optional byte to specify transmission options (default 0x01: disable ACK)
-         frameod: Optional frameid, only used if Tx status is desired
+         frameod: Optional frameid, only used if transmit status is desired
       Returns:
-         Message sent to XBee, formatted into a readable string.
+         Number of bytes sent
       """
-      out = bytearray()
-
-      out.append(0x7E)                 # Start delimeter
-      out.append(0x00)                 # MSB (always zero)
-      out.append(len(msg) + 5)         # LSB (number of bytes minus checksum)
-      out.append(0x01)                 # Tx Request
-      out.append(frameid)              # Frame ID
-      out.append((addr & 0xFF00) >> 8) # Address MSB
-      out.append(addr & 0xFF)          # Address LSB
-      out.append(options)              # Options byte
+      frame = bytearray.fromhex('7E 00 {:02X} 01 {:02X} {:02X} {:02X} {:02X}'.format(
+         len(msg) + 5,           # LSB (length)
+         frameid,
+         (addr & 0xFF00) >> 8,   # Destination address high byte
+         addr & 0xFF,            # Destination address low byte
+         options))
       
       #  Append message content
-      [out.append(c) for c in msg]
+      for c in msg:
+         frame.append(c) 
 
       # Calculate checksum byte
-      out.append(self.CheckSum(out))
+      frame.append(0xFF - (sum(frame[3:]) & 0xFF))
 
       # Escape any bytes containing reserved characters
-      out = self.Escape(out)
+      frame = self.Escape(frame)
 
-      self.serial.write(out)
-
-      return self.format(out)
-
-   def Receive(self):
-      """
-      Checks serial for an incoming message.  If a message is received, 
-         calles Parse() to verify it is a properly formatted XBee API message.
-      """
-      buf = bytearray()
-
-      while self.serial.inWaiting():
-         buf += self.serial.read()
-
-      if buf:
-         return self.Parse(buf)
-      else:
-         return None
-
-   def Parse(self, msg):
-      """
-      Parses a byte or bytearray object to verify the contents are a 
-         properly formatted XBee message.  If validated, returns
-         received message
-      """
-      if msg[0] != 0x7E:
-         return None
-
-      # 10 bytes is Minimum length to be Rx message
-      #  Src LSB, RSSI, Options, 1 byte data, checksum
-      if len(msg) < 10: 
-         return None
-
-      # All bytes in message must be unescaped.
-      #  Only exception is the start delimiter at the beginning
-      frame = self.Unescape(msg)
-
-      # LSB must match message length (minus checksum)
-      if frame[2] != (len(frame[3:]) - 1):
-         return None
-
-      # Validate checksum
-      if (sum(frame[3:]) & 0xFF) != 0xFF:
-         return None
-
-      return self.format(frame)
+      print("Tx: " + self.format(frame))
+      return self.serial.write(frame)
 
    def Unescape(self, msg):
       """
@@ -108,10 +115,9 @@ class XBee:
          XBee message with original characters.
       """
       out = bytearray()
-      out.append(msg[0])
 
       skip = False
-      for i in range(1, len(msg)):
+      for i in range(len(msg)):
          if skip:
             skip = False
             continue
@@ -123,6 +129,12 @@ class XBee:
             out.append(msg[i])
 
       return out
+
+   # def CountEscaped(self, msg):
+   #    count = 0
+   #    for c in msg if c == 0x7D:
+   #       count += 1
+   #    return count
 
    def Escape(self, msg):
       """
@@ -137,7 +149,7 @@ class XBee:
       """
 
       escaped = bytearray()
-      reserved = bytearray.fromhex("7E 7D 11 13")
+      reserved = bytearray(b"\x7E\x7D\x11\x13")
 
       escaped.append(msg[0])
       for m in msg[1:]:
@@ -149,53 +161,15 @@ class XBee:
 
       return escaped
 
-   def CheckSum(self, msg):
-      """
-      Calculate the checksum byte for an XBee message.
-
-      Input:
-         msg: An unescaped byte or bytearray object containing a full XBee message
-
-      Output:
-         A single byte containing the message checksum
-      """
-      return 0xFF - (sum(msg[3:]) & 0xFF)
-
    def format(self, msg):
       """
       Formats a byte or bytearray object into a more human readable string
-         where each hexadecimal byte is separated by a space
+         where each bytes is represented by two ascii characters and a space
 
       Input:
          msg: A bytes or bytearray object
 
       Output:
-         A string object
+         A string representation
       """
       return " ".join("{:02x}".format(b) for b in msg)
-
-
-if __name__ == "__main__":
-   from time import sleep
-   
-   xbee = XBee("COM3")
-
-   # A simple string message
-   sent = xbee.SendStr("Hello World", 0x0001)
-   print("Tx: " + sent)
-   sleep(1)
-
-   recv = xbee.Receive()
-   print("Rx: " + recv)
-   rxmsg = (bytearray.fromhex(recv[24:-3])).decode('ascii')
-   print("rxmsg: " + rxmsg)
-
-   # A message that requires escaping
-   sent = xbee.Send(bytearray.fromhex("7e 7d 11 13 5b 01 01 01 01 01 01 01"))
-   print("Tx: " + sent)
-   sleep(1)
-   
-   recv = xbee.Receive()
-   print("Rx: " + recv)
-   rxmsg = bytearray.fromhex(recv[24:-3])
-   print("rxmsg: " + xbee.format(rxmsg))

@@ -1,26 +1,23 @@
-import XBee
+# import XBee
+import XBee_Threaded
+from time import sleep
 
-if __name__ == "__main__":
-   from time import sleep
-   
-   xbee = XBee.XBee("COM3")
+if __name__ == "__main__":   
+   # xbee = XBee.XBee("COM3") # Your serial port name here
+   xbee = XBee_Threaded.XBee("COM3") # Your serial port name here
 
    # A simple string message
-   sent = xbee.SendStr("Hello World", 0x0001)
-   print("Tx: " + sent)
-   sleep(1)
-
-   recv = xbee.Receive()
-   print("Rx: " + recv)
-   rxmsg = (bytearray.fromhex(recv[24:-3])).decode('ascii')
-   print("rxmsg: " + rxmsg)
+   sent = xbee.SendStr("Hello World")
+   sleep(0.25)
+   Msg = xbee.Receive()
+   if Msg:
+      content = Msg[7:-1].decode('ascii')
+      print("Msg: " + content)
 
    # A message that requires escaping
-   sent = xbee.Send(bytearray.fromhex("7e 7d 11 13 5b 01 01 01 01 01 01 01"))
-   print("Tx: " + sent)
-   sleep(1)
-   
-   recv = xbee.Receive()
-   print("Rx: " + recv)
-   rxmsg = bytearray.fromhex(recv[24:-3])
-   print("rxmsg: " + xbee.format(rxmsg))
+   xbee.Send(bytearray.fromhex("7e 7d 11 13 5b 01 01 01 01 01 01 01"))   
+   sleep(0.25)
+   Msg = xbee.Receive()
+   if Msg:
+      content = Msg[7:-1]
+      print("Msg: " + xbee.format(content))

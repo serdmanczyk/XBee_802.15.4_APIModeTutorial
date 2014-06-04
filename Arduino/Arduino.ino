@@ -1,45 +1,64 @@
 #include "XBee.h"
+#include "queue.h"
 #include <SoftwareSerial.h>
+
 XBee xbee;
-SoftwareSerial mySerial(10,11); // RX, TX
+Queue RxQ;
+SoftwareSerial sserial(12,13);
 
 void setup(void)
 {
-  mySerial.begin(9600);
-  Serial.begin(9600);
+    sserial.begin(9600);
+    Serial.begin(9600);
 }
 
 void loop(void)
 {
-   unsigned char inbuf[100];
-   unsigned char msgbuf[100];
-   int len = 0;
-   int msglen = 0;
+    delay(5);
+   int queueLen = 0;
+   int delPos = 0;
    
-   delay(25);
-   
-   if (mySerial.available()>10){
-     len = mySerial.available();
-     for (int i=0; i<len; i++)
-     { 
-       inbuf[i] = (unsigned char)mySerial.read(); 
-     }
-    
-   msglen = xbee.Receive(inbuf, len, msgbuf);
-   if (msglen > 0)
-   {
-      unsigned char outmsg[100];
-      unsigned char outframe[100];
-      int framelen = 0;
-      int addr = ((int)msgbuf[4] << 8) + (int)msgbuf[5];
+    while (sserial.available() > 0){
+        unsigned char in = (unsigned char)sserial.read();
+        if (!RxQ.Enqueue(in)){
+            break;
+        }
+    }
 
-      memcpy(outmsg, "you sent: ", 10);      // 10 is length of "you sent: "
-      memcpy(&outmsg[10], &msgbuf[8], msglen-9);   // len - (9 bytes of frame not in message content)
+   queueLen = RxQ.Size();
 
-      framelen = xbee.Send(outmsg, msglen+1, outframe, addr);        // 10 + (-9) = 1 more byte in new content than in previous message
-      Serial.print(framelen);
-      Serial.write(outframe, framelen);
-      mySerial.write(outframe, framelen);
+   for (int i=0;i<queueLen;i++){
+      if (RxQ.Peek(i) == 0x7E){
+         unsigned char checkBuff[Q_SIZE];
+         unsigned char msgBuff[Q_SIZE];
+         int checkLen = 0;
+         int msgLen = 0;
+
+         checkLen = RxQ.Copy(checkBuff, i);
+         msgLen = xbee.Receive(checkBuff, checkLen, msgBuff);
+         if (msgLen > 0){
+            unsigned char outMsg[Q_SIZE];
+            unsigned char outFrame[Q_SIZE];
+            int frameLen = 0;
+            int addr = ((int)msgBuff[4] << 8) + (int)msgBuff[5];
+
+            // 10 is length of "you sent: "
+            memcpy(outMsg, "you sent: ", 10);
+            // len - (9 bytes of frame not in message content)
+            memcpy(&outMsg[10], &msgBuff[8], msgLen-9);
+
+            // 10 + (-9) = 1 more byte in new content than in previous message
+            frameLen = xbee.Send(outMsg, msgLen+1, outFrame, addr);
+            sserial.write(outFrame, frameLen);
+            i += msgLen-1;
+            delPos = i;    
+         }else{
+            if (i>0){
+               delPos = i-1;
+            }
+         }
+      }
    }
-   }
+
+      RxQ.Clear(delPos);
 }
