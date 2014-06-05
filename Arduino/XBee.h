@@ -8,7 +8,6 @@ public:
    
     int Receive(unsigned char *inbuf, int len, unsigned char *outbuf);
     int Send(unsigned char *buf, int len, unsigned char *outbuf, int addr = 0xFFFF);
-    // void outhex(unsigned char *buf, int len); 
 private:
     int escape(unsigned char *input, int inlen, unsigned char *output);
     int unescape(unsigned char *input, int inlen, unsigned char *output);
