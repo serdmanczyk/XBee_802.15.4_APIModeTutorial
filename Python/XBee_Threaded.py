@@ -1,6 +1,9 @@
 import serial
 import threading
-import Queue
+try:
+    import Queue  # Python 2.7
+except:
+    import queue as Queue  # Python 3.3
 from time import sleep
 
 
