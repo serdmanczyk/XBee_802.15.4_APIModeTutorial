@@ -101,8 +101,7 @@ class XBee():
         
         frame = bytearray.fromhex(hexs)
         #  Append message content
-        for c in msg:
-            frame.append(c)
+        frame.extend(msg)
 
         # Calculate checksum byte
         frame.append(0xFF - (sum(frame[3:]) & 0xFF))
