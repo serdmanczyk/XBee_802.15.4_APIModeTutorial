@@ -76,6 +76,8 @@ int Queue::Copy(unsigned char *outbuf, int start){
         outbuf[i++] = m_Data[pos++];
         pos %= Q_SIZE;
     }
+    
+    return i;
 }
 
 
