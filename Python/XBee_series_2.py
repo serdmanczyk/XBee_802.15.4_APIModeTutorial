@@ -40,10 +40,10 @@ class XBee():
 
         Outputs: True or False, indicating message validity
         """
-        #  17 bytes is Minimum length to be a valid Rx frame
-        #  LSB, MSB, Type, 64 bit Source Address(8) , Broadcast Radius(1) ,Source Address(2),
+        #  16 bytes is Minimum length to be a valid Rx frame
+        #  LSB, MSB, Type, 64 bit Source Address(8) ,Source Address(2),
         #  Options, 1 byte data, checksum
-        if (len(msg) - msg.count(bytes(b'0x7D'))) < 17:
+        if (len(msg) - msg.count(bytes(b'0x7D'))) < 16:
             return False
 
         # All bytes in message must be unescaped before validating content
