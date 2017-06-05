@@ -100,7 +100,7 @@ class XBee(threading.Thread):
                                     # Broadcast address of 64 bits is 0x000000000000FFFF
             (addr & 0xFF00) >> 8,   # Destination address high byte
             addr & 0xFF,            # Destination address low byte
-            0x00                    # Broadcast radius
+            0x00,                   # Broadcast radius
             options
         )
         
