@@ -6,3 +6,7 @@ This directory contains all Python code.  The only requirement is the [pySerial]
 
 ## Arduino
 This directory contains a full Arduino project programmed for Arduino Uno.  Simply load the .ino file in the Arduino Software, compile, and upload.
+
+## XBee Series 2 Support
+
+[hemanthvhr](https://github.com/hemanthvhr) has provided an update to support Xbee Series 2.  See the [pull request](https://github.com/serdmanczyk/XBee_802.15.4_APIModeTutorial/pull/2) for more info.
